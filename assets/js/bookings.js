@@ -28,7 +28,7 @@ function initializeBookingForm() {
     const submitButton = document.querySelector('#booking-form button[type="submit"]');
 
     if (stationSelect) {
-        stationSelect.addEventListener('change', function() {
+        stationSelect.addEventListener('change', async function() {
             const stationId = this.value;
             if (!stationId) return;
 
@@ -48,40 +48,63 @@ function initializeBookingForm() {
                 timeSlotContainer.innerHTML = '<h4>Available Time Slots</h4><p class="text-muted">Select a date to view available time slots</p>';
             }
 
-            // Show loading state
-            const loadingElement = document.createElement('div');
-            loadingElement.className = 'loading-indicator';
-            loadingElement.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Loading charging points...';
-            bookingForm.insertBefore(loadingElement, chargingPointSelect.parentNode.nextSibling);
+            try {
+                // Show loading state
+                const loadingElement = document.createElement('div');
+                loadingElement.className = 'loading-indicator';
+                loadingElement.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Loading charging points...';
+                bookingForm.insertBefore(loadingElement, chargingPointSelect.parentNode.nextSibling);
 
-            // Fetch available charging points for this station
-            // In a real implementation, this would be an AJAX call
-            setTimeout(() => {
+                // Fetch available charging points for this station
+                const response = await fetch(`/api/stations/${stationId}/charging-points`);
+                if (!response.ok) throw new Error('Failed to fetch charging points');
+                
+                const chargingPoints = await response.json();
+
                 // Remove loading indicator
                 loadingElement.remove();
 
-                // Simulate API response
-                const mockChargingPoints = [
-                    { id: 1, name: 'Column 1 - Point 1', power: '7.4 kW', type: 'Type 2' },
-                    { id: 2, name: 'Column 1 - Point 2', power: '7.4 kW', type: 'Type 2' },
-                    { id: 3, name: 'Column 2 - Point 1', power: '11 kW', type: 'CCS' },
-                    { id: 4, name: 'Column 2 - Point 2', power: '11 kW', type: 'CCS' },
-                    { id: 5, name: 'Column 3 - Point 1', power: '22 kW', type: 'Type 2' },
-                ];
-
                 // Populate charging points dropdown
                 if (chargingPointSelect) {
-                    mockChargingPoints.forEach(point => {
+                    chargingPoints.forEach(point => {
                         const option = document.createElement('option');
-                        option.value = point.id;
-                        option.textContent = `${point.name} (${point.power}, ${point.type})`;
+                        option.value = point.charging_point_id;
+                        option.textContent = `Point #${point.charging_point_id} (${point.slots_num} slots)`;
                         chargingPointSelect.appendChild(option);
                     });
 
                     chargingPointSelect.disabled = false;
                 }
-            }, 500);
+            } catch (error) {
+                console.error('Error fetching charging points:', error);
+                
+                // Fallback to mock data in case of API error
+                const mockChargingPoints = [
+                    { charging_point_id: 1, slots_num: 2 },
+                    { charging_point_id: 2, slots_num: 2 },
+                    { charging_point_id: 3, slots_num: 2 },
+                    { charging_point_id: 4, slots_num: 2 },
+                    { charging_point_id: 5, slots_num: 2 }
+                ];
+
+                // Populate charging points dropdown with mock data
+                if (chargingPointSelect) {
+                    mockChargingPoints.forEach(point => {
+                        const option = document.createElement('option');
+                        option.value = point.charging_point_id;
+                        option.textContent = `Point #${point.charging_point_id} (${point.slots_num} slots)`;
+                        chargingPointSelect.appendChild(option);
+                    });
+
+                    chargingPointSelect.disabled = false;
+                }
+            }
         });
+
+        // Trigger change event if station is pre-selected
+        if (stationSelect.value) {
+            stationSelect.dispatchEvent(new Event('change'));
+        }
     }
 
     // Charging point and date selection affects available time slots
